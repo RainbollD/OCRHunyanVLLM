@@ -1,44 +1,33 @@
 services:
-  # One-off downloader: `docker compose --profile download run --rm download-model`
-  # Fetches weights into ./models/<name> on whatever machine runs this command, so
-  # it only helps if that machine can actually reach the HF weight CDN (see .env).
   download-model:
     image: python:3.12-slim
-    profiles: ["download"]
+    environment:
+      - MODEL_ID=${MODEL_ID:-tencent/HunyuanOCR}
+      - MODEL_DIR=${MODEL_DIR:-HunyuanOCR}
     volumes:
       - ./models:/models
-    environment:
-      - HF_MODEL_ID=${MODEL_ID:-tencent/HunyuanOCR}
-    entrypoint: ["sh", "-c"]
-    command:
-      - >
-        pip install -q -U "huggingface_hub[cli]" &&
-        hf download "$$HF_MODEL_ID" --local-dir "/models/$${HF_MODEL_ID#*/}"
+      - ./download_model.sh:/download_model.sh:ro
+    entrypoint: ["sh", "/download_model.sh"]
 
   ocr:
-    # Official vLLM OpenAI-compatible server image.
-    # HunyuanOCR needs vLLM >= 0.12.0; v0.24.0 is the latest stable (built for CUDA 12.9).
     image: vllm/vllm-openai:${VLLM_TAG:-v0.24.0}
     container_name: ocr_hunyuan
-    # vLLM workers need host IPC (shared memory), otherwise they can crash on startup.
+    depends_on:
+      download-model:
+        condition: service_completed_successfully
     ipc: host
     entrypoint: ["vllm", "serve"]
     command:
-      # HF repo id by default; set MODEL_ID=/models/<name> in .env to load from a local
-      # directory (mounted below) when the host can't download from Hugging Face.
-      - ${MODEL_ID:-tencent/HunyuanOCR}
+      - /models/${MODEL_DIR:-HunyuanOCR}
       - --served-model-name
       - hunyuan-ocr
       - --host
       - "0.0.0.0"
       - --port
       - "8000"
-      # Memory savers recommended by Tencent for OCR:
-      # every image is unique, so a prefix / mm-processor cache only wastes VRAM.
       - --no-enable-prefix-caching
       - --mm-processor-cache-gb
       - "0"
-      # --- VRAM tuning (target card is 16 GB, below the official 20 GB minimum). See .env ---
       - --gpu-memory-utilization
       - "${GPU_MEMORY_UTILIZATION:-0.90}"
       - --max-model-len
@@ -48,17 +37,7 @@ services:
     ports:
       - "${PORT:-6969}:8000"
     volumes:
-      # Persist the downloaded model between restarts.
-      - hunyuan_cache:/root/.cache/huggingface
-      # Local model dir (used when MODEL_ID=/models/<name>). Harmless empty mount otherwise.
       - ./models:/models:ro
-    environment:
-      - HF_HOME=/root/.cache/huggingface
-      # Fall back to plain HTTPS downloads: some hosts can't reach the HF Xet CDN
-      # (cas-server.xethub.hf.co), which makes weight download hang. Disabling Xet is safe.
-      - HF_HUB_DISABLE_XET=1
-      # HunyuanOCR is public; a token is usually not needed. Uncomment if you hit auth errors.
-      # - HUGGING_FACE_HUB_TOKEN=${HUGGING_FACE_HUB_TOKEN:-}
     deploy:
       resources:
         reservations:
@@ -71,9 +50,5 @@ services:
       interval: 30s
       timeout: 5s
       retries: 20
-      # First boot downloads the model (~2-6 GB) and loads it; don't flag unhealthy meanwhile.
-      start_period: 900s
+      start_period: 300s
     restart: unless-stopped
-
-volumes:
-  hunyuan_cache:

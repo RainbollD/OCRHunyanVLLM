@@ -1,20 +1,16 @@
-set -euo pipefail
+#!/usr/bin/env sh
+# Runs inside the download-model container (see docker-compose.yml). Skips the
+# network entirely if the model is already there, so a blocked/offline host can
+# still start the stack once the weights have been copied into ./models once.
+set -eu
 
-MODEL_ID="${1:-tencent/HunyuanOCR}"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TARGET_DIR="${SCRIPT_DIR}/models/${MODEL_ID#*/}"
+MODEL_ID="${MODEL_ID:-tencent/HunyuanOCR}"
+TARGET="/models/${MODEL_DIR:-HunyuanOCR}"
 
-if ! command -v hf >/dev/null 2>&1 && ! command -v huggingface-cli >/dev/null 2>&1; then
-  echo "huggingface_hub CLI not found, installing..."
-  pip install -q -U "huggingface_hub[cli]"
+if [ -f "${TARGET}/config.json" ]; then
+  echo "Model already present at ${TARGET}, skipping download."
+  exit 0
 fi
 
-DOWNLOAD_CMD=huggingface-cli
-command -v hf >/dev/null 2>&1 && DOWNLOAD_CMD=hf
-
-echo "Downloading ${MODEL_ID} into ${TARGET_DIR} (resumable, safe to re-run)..."
-"${DOWNLOAD_CMD}" download "${MODEL_ID}" --local-dir "${TARGET_DIR}"
-
-echo
-echo "Done. In .env, set: MODEL_ID=/models/${MODEL_ID#*/}"
-echo "Then: docker compose up -d"
+pip install -q -U huggingface_hub
+hf download "${MODEL_ID}" --local-dir "${TARGET}"
