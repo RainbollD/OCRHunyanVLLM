@@ -30,7 +30,7 @@ services:
       - --max-num-seqs
       - "${MAX_NUM_SEQS:-4}"
     ports:
-      - "${PORT:-8000}:8000"
+      - "6969:8000"
     volumes:
       # Persist the downloaded model between restarts.
       - hunyuan_cache:/root/.cache/huggingface
