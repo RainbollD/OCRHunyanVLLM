@@ -18,6 +18,6 @@ exec vllm serve "${TARGET}" \
   --port 8000 \
   --no-enable-prefix-caching \
   --mm-processor-cache-gb 0 \
-  --gpu-memory-utilization "${GPU_MEMORY_UTILIZATION:-0.90}" \
+  --gpu-memory-utilization "${GPU_MEMORY_UTILIZATION:-0.70}" \
   --max-model-len "${MAX_MODEL_LEN:-16384}" \
-  --max-num-seqs "${MAX_NUM_SEQS:-4}"
+  --max-num-seqs "${MAX_NUM_SEQS:-2}"
