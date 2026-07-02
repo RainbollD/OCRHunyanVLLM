@@ -13,9 +13,9 @@ services:
       - MODEL_ID=${MODEL_ID:-tencent/HunyuanOCR}
       - MODEL_DIR=${MODEL_DIR:-HunyuanOCR}
       # --- VRAM tuning (target card is 16 GB, below the official 20 GB minimum). See .env ---
-      - GPU_MEMORY_UTILIZATION=${GPU_MEMORY_UTILIZATION:-0.90}
+      - GPU_MEMORY_UTILIZATION=${GPU_MEMORY_UTILIZATION:-0.60}
       - MAX_MODEL_LEN=${MAX_MODEL_LEN:-16384}
-      - MAX_NUM_SEQS=${MAX_NUM_SEQS:-4}
+      - MAX_NUM_SEQS=${MAX_NUM_SEQS:-2}
     ports:
       - "${PORT:-6969}:8000"
     volumes:
